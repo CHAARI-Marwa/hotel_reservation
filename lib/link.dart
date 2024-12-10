@@ -68,8 +68,8 @@ class Link extends ChangeNotifier {
     }
   }
 
-  // Function to reserve a room
-  Future<void> reserveRoom(int roomId, int userId, double amount) async {
+  // Function to reserve a room (userId is now a String, not int)
+  Future<void> reserveRoom(int roomId, String userId, double amount) async {
     final reserveRoomFunction = contract.function('reserveRoom');
     
     final result = await ethClient.sendTransaction(
@@ -78,7 +78,7 @@ class Link extends ChangeNotifier {
         to: EthereumAddress.fromHex(contractAddress),
         data: reserveRoomFunction.encodeCall([
           BigInt.from(roomId),
-          BigInt.from(userId),
+          userId, // Now passing userId as a String (hash)
         ]),
         value: EtherAmount.fromUnitAndValue(EtherUnit.wei, (amount * 1e18).toInt()), // Convert ETH to Wei
       ),
@@ -87,8 +87,8 @@ class Link extends ChangeNotifier {
     print("Transaction sent: $result");
   }
 
-  // Function to verify access to a room
-  Future<bool> verifyAccess(int roomId, int userId) async {
+  // Function to verify access to a room (userId is now a String, not int)
+  Future<bool> verifyAccess(int roomId, String userId) async {
     final verifyAccessFunction = contract.function('verifyAccess');
 
     final result = await ethClient.call(
@@ -96,7 +96,7 @@ class Link extends ChangeNotifier {
       function: verifyAccessFunction,
       params: [
         BigInt.from(roomId),
-        BigInt.from(userId),
+        userId, // Now passing userId as a String (hash)
       ],
     );
     return result.first as bool;
@@ -115,7 +115,7 @@ class Link extends ChangeNotifier {
     // Parse the result into a map
     return {
       'roomId': result[0],
-      'userId': result[1],
+      'userId': result[1], // This will now return a String (userId hash)
       'amountPaid': result[2],
       'reserver': result[3],
     };

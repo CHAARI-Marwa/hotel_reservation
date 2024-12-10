@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 contract HotelBlockchain {
     struct Reservation {
         uint256 roomId;          // Numéro de chambre
-        uint256 userId;          // ID unique de l'utilisateur
+        string userId;           // ID unique de l'utilisateur (sous forme de string, comme un hash IPFS)
         uint256 amountPaid;      // Montant payé
         address reserver;        // Adresse Ethereum de la personne
     }
@@ -16,7 +16,7 @@ contract HotelBlockchain {
     address public owner;
 
     // Événement pour signaler une nouvelle réservation
-    event RoomReserved(uint256 roomId, uint256 userId, uint256 amountPaid, address reserver);
+    event RoomReserved(uint256 roomId, string userId, uint256 amountPaid, address reserver);
 
     // Constructeur pour initialiser le propriétaire
     constructor() {
@@ -25,10 +25,10 @@ contract HotelBlockchain {
 
     /// @notice Permet de réserver une chambre
     /// @param _roomId Le numéro de la chambre
-    /// @param _userId L'ID unique de l'utilisateur
-    function reserveRoom(uint256 _roomId, uint256 _userId) public payable {
+    /// @param _userId L'ID unique de l'utilisateur (hash ou string)
+    function reserveRoom(uint256 _roomId, string memory _userId) public payable {
         require(_roomId > 0, "roomId doit etre superieur a 0");
-        require(_userId > 0, "userId doit etre superieur a 0");
+        require(bytes(_userId).length > 0, "userId doit etre valide");
         require(reservations[_roomId].roomId == 0, "Chambre deja reservee");
         require(msg.value > 0, "Le paiement doit etre superieur a 0");
 
@@ -46,15 +46,14 @@ contract HotelBlockchain {
 
     /// @notice Vérifie si un utilisateur a accès à une chambre
     /// @param _roomId Le numéro de la chambre
-    /// @param _userId L'ID unique de l'utilisateur
+    /// @param _userId L'ID unique de l'utilisateur (hash ou string)
     /// @return bool True si l'utilisateur a accès, false sinon
-    function verifyAccess(uint256 _roomId, uint256 _userId) public view returns (bool) {
+    function verifyAccess(uint256 _roomId, string memory _userId) public view returns (bool) {
         Reservation memory reservation = reservations[_roomId];
         require(reservation.roomId != 0, "Aucune reservation pour cette chambre");
-        return reservation.userId == _userId;
+        
+        return keccak256(abi.encodePacked(reservation.userId)) == keccak256(abi.encodePacked(_userId));
     }
-
- 
 
     /// @notice Récupère les détails d'une réservation
     /// @param _roomId Le numéro de la chambre
