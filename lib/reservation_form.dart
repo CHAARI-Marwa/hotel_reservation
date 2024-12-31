@@ -303,16 +303,6 @@ class _ReservationFormState extends State<ReservationForm> {
                 },
                 child: Text('Envoyer'),
               ),
-              // Text(
-              //   _uploadStatus,
-              //   style: TextStyle(color: Colors.red, fontSize: 16),
-              // ),
-              // SizedBox(height: 10),
-              // if (_ipfsHash.isNotEmpty)
-              //   Text(
-              //     'IPFS Hash: $_ipfsHash',
-              //     style: TextStyle(color: Colors.green, fontSize: 16),
-              //   ),
             ],
           ),
         ),

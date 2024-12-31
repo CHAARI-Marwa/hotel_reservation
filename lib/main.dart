@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hotel_reservation/home_page.dart';
 import 'package:hotel_reservation/link.dart';
 import 'package:hotel_reservation/verify_person.dart';
 import 'package:provider/provider.dart';
@@ -20,7 +19,7 @@ class MyApp extends StatelessWidget {
         title: 'Hotel Reservation',
         theme: ThemeData(primarySwatch: Colors.blue),
         home: VerifyPerson(),
-      ), // Fermeture de MaterialApp
-    ); // Fermeture de ChangeNotifierProvider
+      ), 
+    ); 
   }
 }
