@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // Import pour ImageSource
+import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:hotel_reservation/link.dart';
 
 class ReservationForm extends StatefulWidget {
   @override
@@ -18,6 +22,8 @@ class _ReservationFormState extends State<ReservationForm> {
   String _frontResponse = '';
   String _leftResponse = '';
   String _rightResponse = '';
+  String _uploadStatus = '';
+  String _ipfsHash = '';
 
   String get _photoInstructions {
     switch (_currentPhotoIndex) {
@@ -57,13 +63,23 @@ class _ReservationFormState extends State<ReservationForm> {
         }
         _currentPhotoIndex++;
       });
-      await _sendImageToServer(File(pickedFile.path));
+
+      switch (_currentPhotoIndex) {
+        case 1:
+          await _sendImageToServer(File(pickedFile.path), "image1");
+          break;
+        case 2:
+          await _sendImageToServer(File(pickedFile.path), "image2");
+          break;
+        case 3:
+          await _sendImageToServer(File(pickedFile.path), "image3");
+          break;
+      }
     }
   }
 
-  Future<void> _sendImageToServer(File imageFile) async {
-    final uri = Uri.parse(
-        'http:///*Put the ip @ of your computer*/:5000/extract_features');
+  Future<void> _sendImageToServer(File imageFile, String imageName) async {
+    final uri = Uri.parse('http://192.168.1.113:5000/extract_features');
     final request = http.MultipartRequest('POST', uri);
     request.files
         .add(await http.MultipartFile.fromPath('file', imageFile.path));
@@ -72,19 +88,53 @@ class _ReservationFormState extends State<ReservationForm> {
 
     if (response.statusCode == 200) {
       final responseBody = await response.stream.bytesToString();
+      final extractedFeatures = json.decode(responseBody)['features'];
+
       setState(() {
-        switch (_currentPhotoIndex - 1) {
-          case 0:
-            _frontResponse = responseBody;
+        switch (imageName) {
+          case "image1":
+            _frontResponse = extractedFeatures.toString();
             break;
-          case 1:
-            _leftResponse = responseBody;
+          case "image2":
+            _leftResponse = extractedFeatures.toString();
             break;
-          case 2:
-            _rightResponse = responseBody;
+          case "image3":
+            _rightResponse = extractedFeatures.toString();
             break;
         }
       });
+
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = "${directory.path}/user_data.json";
+      final file = File(filePath);
+
+      Map<String, dynamic> userData;
+
+      if (await file.exists()) {
+        final existingContent = await file.readAsString();
+        userData = json.decode(existingContent);
+      } else {
+        userData = {
+          "full_name": "Marwa CHAARI",
+          "id": "11669933",
+          "phone_number": "98650420",
+          "nights_to_stay": 3,
+          "features": {}
+        };
+      }
+
+      if (userData["features"] == null) {
+        userData["features"] = {};
+      }
+
+      userData["features"][imageName] = extractedFeatures;
+
+      final jsonString = json.encode(userData);
+      await file.writeAsString(jsonString);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$imageName features added successfully!')),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to send image: ${response.statusCode}')),
@@ -92,8 +142,74 @@ class _ReservationFormState extends State<ReservationForm> {
     }
   }
 
+  Future<void> _sendDataToIPFS() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = "${directory.path}/user_data.json";
+      final jsonFile = File(filePath);
+
+      if (await jsonFile.exists()) {
+        final url = Uri.parse('https://api.pinata.cloud/pinning/pinFileToIPFS');
+        final request = http.MultipartRequest('POST', url);
+
+        request.files
+            .add(await http.MultipartFile.fromPath('file', jsonFile.path));
+
+        request.headers.addAll({
+          'pinata_api_key': '7b1dd642ae011dc2f4cb',
+          'pinata_secret_api_key':
+              '53707391c25f9622b0b057d69c921fbb5ec9511b2951475ed27ceaa1e32dd147',
+        });
+
+        final response = await request.send();
+        setState(() {
+          _uploadStatus = 'HTTP Status: ${response.statusCode}';
+        });
+
+        if (response.statusCode == 200) {
+          final responseBody = await response.stream.bytesToString();
+          final ipfsHash = json.decode(responseBody)['IpfsHash'];
+          setState(() {
+            _ipfsHash = ipfsHash;
+          });
+        } else {
+          setState(() {
+            _ipfsHash = 'Failed to upload file';
+          });
+        }
+      } else {
+        setState(() {
+          _uploadStatus = 'File not found';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _uploadStatus = 'Error: $e';
+      });
+    }
+  }
+
+  void testConnection() async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            'http://192.168.100.220:7545'), // Changez l'URL selon votre configuration
+        headers: {"Content-Type": "application/json"},
+        body:
+            '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}',
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+    } catch (e) {
+      print('Error connecting to Ganache: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final contractLinking = Provider.of<Link>(context, listen: false);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Réservation'),
@@ -144,7 +260,7 @@ class _ReservationFormState extends State<ReservationForm> {
               SizedBox(height: 20),
               TextField(
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'ID',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -156,14 +272,47 @@ class _ReservationFormState extends State<ReservationForm> {
                 ),
               ),
               SizedBox(height: 20),
+              TextField(
+                decoration: InputDecoration(
+                  labelText: 'Nights to stay',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Réservation envoyée !')),
-                  );
+                onPressed: () async {
+                  try {
+                    // testConnection();
+                    // Étape 1 : Envoyer les données à IPFS
+                    await _sendDataToIPFS();
+
+                    // Étape 2 : Enregistrer la chambre sur la blockchain avec l'IPFS Hash
+                    await contractLinking.registerRoom(9, _ipfsHash);
+
+                    // Vous pouvez ajouter un message de succès si nécessaire
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('Chambre enregistrée avec succès !')),
+                    );
+                  } catch (e) {
+                    // Afficher l'erreur si l'une des étapes échoue
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur : $e')),
+                    );
+                  }
                 },
                 child: Text('Envoyer'),
               ),
+              // Text(
+              //   _uploadStatus,
+              //   style: TextStyle(color: Colors.red, fontSize: 16),
+              // ),
+              // SizedBox(height: 10),
+              // if (_ipfsHash.isNotEmpty)
+              //   Text(
+              //     'IPFS Hash: $_ipfsHash',
+              //     style: TextStyle(color: Colors.green, fontSize: 16),
+              //   ),
             ],
           ),
         ),

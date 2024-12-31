@@ -20,7 +20,6 @@ class HomePage extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 20),
-              // Images
               Image.asset(
                 'assets/hotel1.jpg',
                 height: 200,
@@ -35,7 +34,6 @@ class HomePage extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
               SizedBox(height: 20),
-              // Bouton
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
